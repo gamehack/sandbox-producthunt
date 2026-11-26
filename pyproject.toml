@@ -1,0 +1,28 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sandbox-producthunt"
+version = "0.1.0"
+description = "Run the Product Hunt research pipeline in an InstaBox sandbox with DSH Agent Harness"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "qjai-producthunt @ git+https://github.com/gamehack/producthunt.git@c5b354aacdfb9bee25be235c02217df76469e279",
+  "pydantic>=2.7,<3",
+  "python-dotenv>=1.0,<2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-asyncio>=0.23"]
+
+[project.scripts]
+sandbox-producthunt = "sandbox_producthunt.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sandbox_producthunt"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
