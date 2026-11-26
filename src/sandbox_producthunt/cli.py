@@ -58,6 +58,20 @@ def backend_settings(settings: Settings, backend: str) -> Settings:
 def make_runtime(root: Path, settings: Settings, backend: str):
     if backend == "dsh":
         return DSHRuntime(root)
+    missing = [
+        name for name, value in (
+            ("OMNIROUTE_BASE_URL", settings.omni_base_url),
+            ("OMNIROUTE_API_KEY", settings.omni_api_key),
+            ("OMNIROUTE_MODEL", settings.omni_model),
+        ) if not value
+    ]
+    if missing:
+        raise ValueError(
+            "OpenAI Agents SDK mode uses OmniRoute and requires "
+            + ", ".join(missing)
+            + ". Set them in /data/opt/sandbox-producthunt/.env, "
+              "or omit --runtime openai to use the default DSH runtime."
+        )
     return OpenAIAgentRuntime(settings.omni_base_url, settings.omni_api_key, settings.omni_model)
 
 
@@ -128,8 +142,9 @@ def main() -> None:
     try:
         result = asyncio.run(execute(p.parse_args()))
         print(json.dumps(result, ensure_ascii=False))
-    except (DSHError, PermissionError) as exc:
-        # These are locally generated messages; do not print provider response bodies.
+    except (DSHError, PermissionError, ValueError) as exc:
+        # These are locally generated validation/configuration messages. Do not
+        # print arbitrary provider response bodies or credential-bearing errors.
         print(f"sandbox-producthunt: {exc}", file=sys.stderr)
         raise SystemExit(2) from None
     except Exception as exc:
