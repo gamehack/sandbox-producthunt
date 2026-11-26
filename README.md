@@ -144,7 +144,7 @@ cd /data/opt/sandbox-producthunt
 
 **凭证注意：** DSH 官方 Headless 配置默认不启用 Web 管理的本地凭证存储。Headless API Key 路由按启动环境、调用目录 `.env`、`$DSH_HOME/.env` 的顺序读取环境变量；Provider 的 `apiKeyEnv` 必须指向对应变量名。因此，Web UI 中已保存的第三方模型凭证不一定会自动被 Headless 使用。若 `doctor` 的模型连通性检查失败，应检查 Headless profile 的 Provider / model 选择，以及该 Provider 对应的 `apiKeyEnv` 环境变量；不需要登录 DeepSeek 官网账号。
 
-本项目每次调用都显式指定 `--permission-mode read-only --approval-policy never`，并要求模型只返回结构化 JSON、不调用工具。运行时会检查 DSH JSON 事件流：进程退出码必须为 0、最终 `reason.kind` 必须为 `completed`，且不允许出现工具调用事件。
+本项目针对 DSH `0.2.2-rc.5` 的 Headless 协议，每次调用都显式指定 `--permission-mode read-only --approval-policy never`，并要求模型只返回结构化 JSON、不调用工具。同时应用 `config/no-tools.patch.yml` 关闭该版本内置业务无关工具与官方会话日志上传。DSH 子进程不继承 Product Hunt Token 或 Notion Secret，使用独立临时工作目录。该配置要求 Headless profile 不安装其他工具插件；read-only 并非网络隔离，事后事件校验也不能撤销已经执行的工具操作，因此生产前必须验证有效配置。运行时会检查 DSH JSON 事件流：进程退出码必须为 0、最终 `reason.kind` 必须为 `completed`，且不允许出现工具调用事件。
 
 ## 5. 手动运行
 
@@ -206,7 +206,22 @@ npx instabox@latest exec --background qjai-dsh-01 -- bash -lc '
 - 不在本项目实现微信公众号/CMS 发布。
 - 不把 `.env`、Token、Notion Secret、DSH Provider Key、SQLite 或真实文章产物提交到 Git。
 
-## 8. 验证
+## 8. 原版对照执行
+
+若仅需验证原 Python 项目能否在 InstaBox 原样运行，可在私有 `.env` 配置 `OMNIROUTE_BASE_URL`、`OMNIROUTE_API_KEY` 和 `OMNIROUTE_MODEL`，然后执行：
+
+```bash
+./scripts/run.sh --runtime openai doctor
+./scripts/run.sh --runtime openai check-ready --date 2026-11-25
+# 以下命令会写入生产 Notion，确认原调度未并发执行后才运行：
+./scripts/run.sh --runtime openai run --date 2026-11-25
+```
+
+默认仍是 DSH；原版对照模式直接使用上游 OpenAI Agents SDK，检查点使用独立 `.openai.sqlite` 文件，产物存放于 `output/openai/`。两种模式共享单实例锁和同一个 Notion READY 合约。锁仅保护本沙箱，不能协调原 GitHub Actions 或其他机器；实际生产切换必须先确认旧生产任务已结束并停止原生产调度。本项目没有自动定时生产任务。
+
+DSH 适配器继承固定版本上游 `OpenAIAgentRuntime` 以通过其现有类型检查，覆盖全部推理方法；没有修改上游包。上游内部 run ID 仍含 `openai`，不代表 DSH 调用了 OpenAI SDK。
+
+## 9. 验证
 
 ```bash
 python -m pip install -e '.[dev]'
